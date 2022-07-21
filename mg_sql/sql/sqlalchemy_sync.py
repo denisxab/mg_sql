@@ -18,6 +18,7 @@ try:
 except Exception as ex:
     print(f"Ошибка: {ex}")
 
+
 def get_session_decor(fun):
     """
     @get_session_dec

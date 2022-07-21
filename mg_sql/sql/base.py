@@ -1,35 +1,34 @@
-from typing import Any
+from collections import namedtuple
+from typing import Any, Union
 
 try:
-    from sqlalchemy import text, insert
-    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncConnection
+    from sqlalchemy import text
+    from sqlalchemy.engine import CursorResult
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncConnection, AsyncEngine
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.orm.decl_api import DeclarativeMeta
+
 except ImportError:
     pass
 
-
-class UrlConnect:
-    """
-    Формирование URL для подключения к СУБД
-    """
-
-    @staticmethod
-    def sqllite(path_db: str):
-        return f'sqlite+aiosqlite:///{path_db}'
-
-    @staticmethod
-    def postgresql(user: str, password: str, host: str, name_db: str, port: int = 5432):
-        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name_db}"
+from .helpful import SqlUrlConnect
 
 
 class SQL:
-    engine = AsyncEngine = None
+    """
+    Класс для работы с СУБД
+    """
+    engine: AsyncEngine = None
     async_session: Any = None
     Base: DeclarativeMeta = None
 
-    def __init__(self, url: UrlConnect):
+    def __init__(self, url: Union[SqlUrlConnect, str]):
+        self._connect(url=url)
+
+    @staticmethod
+    def _connect(url: Union[SqlUrlConnect, str]):
+        """Подключение к БД"""
         #: Настройки для подключения к БД
         SQL.engine = create_async_engine(url)
         #: Для Сессий
@@ -69,6 +68,35 @@ class SQL:
                 yield session
 
     @classmethod
+    async def write_execute_raw_sql(cls, session: AsyncSession, raw_sql: str,
+                                    params: dict[str, Union[str, int, bool, float]] = None) -> int:
+        """
+        Выполнить SQL запрос на запись, и вернуть результат запроса
+
+        :param session: Сессия
+        :param raw_sql: Sql запрос
+        :param params: Параметры в sql запрос
+        :return:  Выполнено успешных запроса
+        """
+        cursor = await session.execute(text(raw_sql), params=params)
+        await session.commit()
+        return cursor.rowcount
+
+    @classmethod
+    async def read_execute_raw_sql(cls, session: AsyncSession, raw_sql: str,
+                                   params: dict[str, Union[str, int, bool, float]] = None) -> list[dict[str, Any]]:
+        """
+        Выполнить SQL запрос на чтение, и вернуть результат запроса
+
+        :param session: Сессия
+        :param raw_sql: Sql запрос
+        :param params: Параметры в sql запрос
+        :return: Список ответов list[Row]
+        """
+        cursor = await session.execute(text(raw_sql), params=params)
+        return cls.dictfetchall(cursor)
+
+    @classmethod
     async def execute_raw_sql(cls, raw_sql: str):
         """
         Выполнить сырой SQL запрос
@@ -104,7 +132,23 @@ class SQL:
     @classmethod
     async def drop_tabel(cls):
         """Удалить все таблицы"""
-        # AsyncConnection
         async with cls.engine.begin() as conn:
             conn: AsyncConnection
             await conn.run_sync(cls.Base.metadata.drop_all)
+
+    @staticmethod
+    def dictfetchall(cursor: CursorResult) -> list[dict[str, Any]]:
+        """
+        Вернуть ответ в виде словаря
+        {"ИмяСтолбца":"Значение"}
+        """
+        columns = [col[0] for col in cursor.cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    @staticmethod
+    def namedtuplefetchall(cursor: CursorResult) -> list[namedtuple]:
+        """
+        Вернуть ответ в виде именованного картежа
+        """
+        nt_result = namedtuple('_', [col[0] for col in cursor.cursor.description])
+        return [nt_result(*row) for row in cursor.fetchall()]

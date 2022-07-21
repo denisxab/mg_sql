@@ -1,4 +1,3 @@
-
 [tool.poetry]
 name = "mg_sql"
 version = "0.0.1"
