@@ -1,16 +1,12 @@
 from collections import namedtuple
 from typing import Any, Union
 
-try:
-    from sqlalchemy import text
-    from sqlalchemy.engine import CursorResult
-    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncConnection, AsyncEngine
-    from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy.orm import sessionmaker
-    from sqlalchemy.orm.decl_api import DeclarativeMeta
-
-except ImportError:
-    pass
+from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncConnection, AsyncEngine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.decl_api import DeclarativeMeta
 
 from .helpful import SqlUrlConnect
 
@@ -97,7 +93,7 @@ class SQL:
         return cls.dictfetchall(cursor)
 
     @classmethod
-    async def execute_raw_sql(cls, raw_sql: str):
+    async def execute_raw_sql(cls, raw_sql: str, params: dict[str, Union[str, int, bool, float]] = None):
         """
         Выполнить сырой SQL запрос
 
@@ -119,7 +115,7 @@ class SQL:
         """
 
         async with cls.engine.begin() as conn:
-            await conn.execute(text(raw_sql))
+            await conn.execute(text(raw_sql), params=params)
             await conn.commit()
 
     @classmethod
@@ -140,6 +136,7 @@ class SQL:
     def dictfetchall(cursor: CursorResult) -> list[dict[str, Any]]:
         """
         Вернуть ответ в виде словаря
+
         {"ИмяСтолбца":"Значение"}
         """
         columns = [col[0] for col in cursor.cursor.description]
@@ -149,6 +146,8 @@ class SQL:
     def namedtuplefetchall(cursor: CursorResult) -> list[namedtuple]:
         """
         Вернуть ответ в виде именованного картежа
+
+        NamedTuple(ИмяСтолбца=Значение)
         """
         nt_result = namedtuple('_', [col[0] for col in cursor.cursor.description])
         return [nt_result(*row) for row in cursor.fetchall()]
