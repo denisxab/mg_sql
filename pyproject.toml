@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "mg_sql"
+version = "0.0.1"
+description = "Создание файлов конфигурация"
+repository = "https://github.com/denisxab/mg_sql.git"
+documentation = "https://mg_sql.readthedocs.io/ru/latest/index.html"
+authors = ["Denis Kustov <denis-kustov@rambler.ru>"]
+readme = "readme.md"
+exclude = [
+    "mg_sql/.idea",
+    "mg_sql/venv",
+    "mg_sql/.git",
+    "mg_sql/.gitignore",
+    "mg_sql/test",
+    "mg_sql/Makefile"
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+SQLAlchemy = "^1.4.39"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"    

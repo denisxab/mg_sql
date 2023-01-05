@@ -1,0 +1,8 @@
+/.idea
+/venvs
+/dist
+/__pycache__/
+/mg_sql/__pycache__/
+mg_sql.bin
+/mg_sql/main.build  
+venv
