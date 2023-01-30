@@ -1,6 +1,8 @@
 from hashlib import sha512
+import json
 from random import randint
 from typing import Any, TypedDict
+from re import sub, Match
 
 
 class ExtendColumn(TypedDict):
@@ -32,6 +34,40 @@ class SqlUrlConnect:
     @staticmethod
     def postgresql(user: str, password: str, host: str, name_db: str, port: int = 5432):
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name_db}"
+
+
+def textSql(text: str, params: dict[str, str]):
+    """ 
+    Собрать SQL запрос, с экранированием параметров 
+
+    :::::::::::::::::::Гайд:::::::::::::::
+
+    :name%s - Строка, вставиться как = 'Значение'
+    :name%i - Цела цифра, вставиться как = 111
+    :name%f - Дробная цифра, вставиться как = 11.11
+    :name%j - JSON строка, вставиться как = '{"name":123}'
+
+
+    text="select * from user where id=:name%i"          --- params={"name":1}
+    text="select * from user where user_name=:name%s"   --- params={"name":"xable"}
+
+    """
+    def _self(m: Match) -> str:
+        md = m.groupdict()
+        _res = None
+        match md['t']:
+            case "s":
+                # Экранирование одинарных кавычек
+                _res = "'{0}'".format(
+                    str(params[md['key']]).replace("'", "''"))
+            case "j":
+                _res = "'{0}'".format(json.dumps(params[md['key']]))
+            case "i":
+                _res = int(params[md['key']])
+            case "f":
+                _res = float(params[md['key']])
+        return str(_res)
+    return sub(r":(?P<key>[\w\d]+)%(?P<t>[isfj])", _self, text)
 
 
 # Захешировать пароль

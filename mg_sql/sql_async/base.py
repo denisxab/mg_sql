@@ -14,6 +14,7 @@ import re
 from .helpful import SqlUrlConnect
 from .model_logic import RawSqlModel
 
+
 class SQL:
     """
     Класс для работы с СУБД
@@ -21,6 +22,11 @@ class SQL:
     engine: AsyncEngine = None
     async_session: Any = None
     Base: DeclarativeMeta = None
+    ##
+    # Настройки для подключения к БД
+    ##
+    encoding: str = "utf-8"
+    isolation_level: str = "AUTOCOMMIT"
 
     def __init__(self, url: Union[SqlUrlConnect, str]):
         self._connect(url=url)
@@ -29,16 +35,19 @@ class SQL:
     def _connect(url: Union[SqlUrlConnect, str]):
         """Подключение к БД"""
         #: Настройки для подключения к БД
-        SQL.engine = create_async_engine(url)
+        SQL.engine = create_async_engine(
+            url, encoding=SQL.encoding, isolation_level=SQL.isolation_level
+        )
         #: Для Сессий
-        SQL.async_session = sessionmaker(SQL.engine, class_=AsyncSession, expire_on_commit=False)
+        SQL.async_session = sessionmaker(
+            SQL.engine, class_=AsyncSession, expire_on_commit=False)
         #: Для ORM моделей
         SQL.Base = declarative_base()
 
     @classmethod
     def get_session_decor(cls, fun):
         """
-        @get_session_dec
+        @get_session_decor
         async def NameFun(..., session: AsyncSession):
             await session.execute(text('''sql'''))
             # await session.commit()
@@ -82,10 +91,7 @@ class SQL:
         return cursor.rowcount
 
     @classmethod
-    async def read_execute_raw_sql(cls
-        , session: AsyncSession
-        , raw_sql: str
-        ,params: dict[str, Union[str, int, bool, float]] = None) -> list[dict[str, Any]]:
+    async def read_execute_raw_sql(cls, session: AsyncSession, raw_sql: str, params: dict[str, Union[str, int, bool, float]] = None) -> list[dict[str, Any]]:
         """
         Выполнить SQL запрос на чтение, и вернуть результат запроса
 
@@ -95,6 +101,28 @@ class SQL:
         :return: Список ответов list[Row]
         """
         cursor = await session.execute(text(raw_sql), params=params)
+        return cls.dictfetchall(cursor)
+
+    @classmethod
+    async def call_procedure(cls, session: AsyncSession, raw_sql: str):
+        """
+        Вызвать/Выполнить процедуру
+
+        raw_sql: Пример `CALL ИмяПроцедуры(Значение_1::Тип_1,Значение_2::Тип_2);`
+
+        -----------------------------------------
+        !!! Если процедура использует операции commit и rollback то обязательно включить авто коммит
+
+        Для этого должно быть
+
+        ```
+        SQL.isolation_level = "AUTOCOMMIT"
+        ```
+
+        Вот решения таких ошибок: https://ru.stackoverflow.com/questions/1491464/%d0%9a%d0%b0%d0%ba-%d0%b2%d1%8b%d0%bf%d0%be%d0%bb%d0%bd%d0%b8%d1%82%d1%8c-%d1%85%d1%80%d0%b0%d0%bd%d0%b8%d0%bc%d1%83%d1%8e-%d0%bf%d1%80%d0%be%d1%86%d0%b5%d0%b4%d1%83%d1%80%d1%83-postgresql-%d0%b2-python/1491469#1491469
+        -----------------------------------------
+        """
+        cursor = await session.execute(raw_sql)
         return cls.dictfetchall(cursor)
 
     @classmethod
@@ -154,12 +182,12 @@ class SQL:
 
         NamedTuple(ИмяСтолбца=Значение)
         """
-        nt_result = namedtuple('_', [col[0] for col in cursor.cursor.description])
+        nt_result = namedtuple('_', [col[0]
+                               for col in cursor.cursor.description])
         return [nt_result(*row) for row in cursor.fetchall()]
 
-
     @staticmethod
-    async def create_models(_models:list[RawSqlModel]):
+    async def create_models(_models: list[RawSqlModel]):
         """
         Создать таблицы в БД, которые указаны в `init_models`
         """
@@ -172,19 +200,20 @@ class SQL:
         # Создать таблицы которые указаны через наследование `RawSqlModel`
         if _models:
             for _table in _models:
-                c= _table.create_table()
+                c = _table.create_table()
                 for x in c.split(';'):
-                    if re.search('\w',x):
+                    if re.search('\w', x):
                         await SQL.execute_raw_sql(x)
                 try:
                     if _table.init_data():
                         await SQL.execute_raw_sql(_table.init_data())
                 except DatabaseError as e:
-                    logger.warning(f"Ошибка инициализации данных:{e}", ['init_data'])
+                    logger.warning(
+                        f"Ошибка инициализации данных:{e}", ['init_data'])
                 logger.info(f"Таблица создана {_table}", ['init_models'])
 
     @staticmethod
-    async def delete_models(_models:list[RawSqlModel]):
+    async def delete_models(_models: list[RawSqlModel]):
         """
         Удалить таблицы из БД, которые подключены к проекту
         """
@@ -193,7 +222,7 @@ class SQL:
             # if len(SQL.Base.metadata.tables) > 0:
             #     async with SQL.engine.begin() as conn:
             #         await conn.run_sync(SQL.Base.metadata.drop_all())
-                    # logger.info(f"Таблицы удалены {list(SQL.Base.metadata.tables.keys())}", 'delete_models')
+            # logger.info(f"Таблицы удалены {list(SQL.Base.metadata.tables.keys())}", 'delete_models')
             # Удаляем таблицы которые указаны через наследование `RawSqlModel`
             if _models:
                 for _table in _models:
