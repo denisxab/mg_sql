@@ -6,6 +6,9 @@
 подключение к СУБД
 
 ```python
+from mg_sql.sql_async.base import SQL
+from mg_sql.sql_async import SqlUrlConnect
+
 SQL(SqlUrlConnect.СУБД(user='', password='', host='', name_db=''))
 ```
 

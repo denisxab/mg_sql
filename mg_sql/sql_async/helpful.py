@@ -35,6 +35,11 @@ class SqlUrlConnect:
     def postgresql(user: str, password: str, host: str, name_db: str, port: int = 5432):
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name_db}"
 
+    # @staticmethod
+    # def firebird(user: str, password: str, host: str, name_db: str, port: int = 3050):
+    #     # Не получилось внедрить Firebird 11.02.2023. Используй https://github.com/denisxab/fbutils
+    #     return f"firebird+fdb://{user}:{password}@{host}:{port}/{name_db}"
+
 
 def textSql(text: str, params: dict[str, str]):
     """ 
